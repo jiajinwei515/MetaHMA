@@ -3,11 +3,13 @@
 # - `doParallel`: Enables parallel computing to improve computational efficiency.
 # - `hdi`: Implements methods for high-dimensional inference, e.g., de-sparsified lasso.
 # - `glmnet`: Fitting penalized regression models, e.g., lasso and elastic net. 
+# - `MASS`
 
 # library(paran)
 # library(doParallel)
 # library(hdi)
 # library(glmnet)
+# library(MASS)
 
 # Please note that you need to load all the R functions in helper.
 
