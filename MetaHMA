@@ -1,21 +1,39 @@
-#install.packages("paran")
-#install.packages("doParallel")
-#install.packages("hdi")
+# Install required R packages (if not already installed):
+# - `paran`: Provides parallel analysis for determining the number of factors in PCA/FA.
+# - `doParallel`: Enables parallel computing to improve computational efficiency.
+# - `hdi`: Implements methods for high-dimensional inference, e.g., de-sparsified lasso.
+# - `glmnet`: Fitting penalized regression models, e.g., lasso and elastic net. 
 
-#library(paran)
-#library(doParallel)
-#library(hdi)
+# library(paran)
+# library(doParallel)
+# library(hdi)
+# library(glmnet)
 
-# n: the sample size
-# p: the dimension of exposures
-# q: the dimension of mediators
-# X is a n*p matrix; M is a n*q matrix, Y is a outcome vector (0 or 1) of length n
-# ncores: please set your number of cores used for parallel computing
-# B: the number of sample splitting in the debiased lasso
+# Please note that you need to load all the R functions in helper.
+
+# Parameters and data description:
+# Input data:
+# X: A matrix of size n * p, representing the exposure variables.
+# M: A matrix of size n * q, representing the mediator variables.
+# Y: A binary outcome vector of length n (values should be 0 or 1).
+#
+# Additional parameters:
+# ncores: number of cores to be used for parallel computing. 
+# Set this to the desired number of CPU cores to improve computational efficiency.
+# B: number of iterative sample splits used in the debiased lasso with sample splitting.
+# sig_cut: the nominal significance level (FDR threshold).
+# ratio_minscreen: the ratio of selected candidate indirect effects in the min-screening procedure.
+# p_adjust_method: for more details, please refer to the R documentation: help(p.adjust).
+#
+# target:
+# A vector specifying the target mediators to be included in the debiased lasso with sample splitting. 
+# The user can specify the indices of mediators of interest. 
+# If set to NULL (default), the input of the debiased lasso with sample splitting 
+# will be yielded by the de-sparsified lasso.
 
 MetaHMA <- function(X, Y, M, ncores = 11,
                     B = 1000,
-                    sig_cut = 0.05,
+                    sig_cut = 0.1,
                     ratio_minscreen = 0.1,
                     p_adjust_method = "BH",
                     target = NULL)
@@ -37,14 +55,12 @@ MetaHMA <- function(X, Y, M, ncores = 11,
   
   PA <- paran(data_factor, iterations = 500, centile = 0)
   K_hat <- PA$Retained
-  
   fa <- factor.analysis(data_factor, K_hat, method = "ml")  
   Wupdate.t <- fa$Gamma
   Sgm_inv <- solve(diag(fa$Sigma))
   orthg <- t(Wupdate.t) %*% Sgm_inv %*% Wupdate.t/p
   V <- eigen(orthg)$vectors
   Wupdate <- t(Wupdate.t %*% V)
-  
   Uupdate <- t(solve(Wupdate %*% Sgm_inv %*% t(Wupdate)) %*% Wupdate %*% Sgm_inv %*% t(data_factor)) 
   
   Fhat <- Uupdate
@@ -102,7 +118,6 @@ MetaHMA <- function(X, Y, M, ncores = 11,
   all_selection_results <- select_results_process(selection_results)
   
   # target covariates selected by screening
-  # target_covariate_indx <- which(beta_lasso_full[(p+1):(p+q)] != 0) + p
   if(is.null(target) == TRUE)
   {
     target_covariate_indx <- beta_scr_indx
@@ -186,7 +201,6 @@ MetaHMA <- function(X, Y, M, ncores = 11,
                                          initial = "decorrelation", centralize = TRUE,
                                          q = NULL, nlambda = 100, rho = 0.5, kmax = 20)
       pval_j <- 2*(1-pnorm(abs(decorr_j$statistics)))
-      #names(pval_j) <- colnames(Xres_Z)
       A_pval_j <- rep(NA, p)
       A_pval_j <- pval_j
       A_coef_j <- rep(NA, p)
@@ -205,7 +219,7 @@ MetaHMA <- function(X, Y, M, ncores = 11,
   
   message("3: M model - done. \n")
   
-  # Min screening
+  # Min-screening
   IE_pval_scr  <- matrix(NA, p, q)
   row.names(IE_pval_scr) <-  colnames(X)
   colnames(IE_pval_scr) <- colnames(M)
